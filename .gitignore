@@ -4,9 +4,11 @@ build/
 
 # Local configuration file (sdk path, etc)
 local.properties
+local.properties.example
 
 # Log/OS Files
 *.log
+*.log.*
 
 # Android Studio generated files and folders
 captures/
@@ -30,5 +32,27 @@ render.experimental.xml
 # Google Services (e.g. APIs or Firebase)
 google-services.json
 
+# Supabase & Secrets
+.env
+.env.local
+supabase/config.toml
+secret_keys.txt
+
 # Android Profiling
 *.hprof
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.class
+.kotlin/
+
+# Node (if using scripts)
+node_modules/
+npm-debug.log
+
+# Build outputs
+*.ap_
+*.dex
