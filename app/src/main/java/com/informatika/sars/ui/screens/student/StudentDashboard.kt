@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,7 +29,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -65,6 +70,7 @@ fun StudentDashboard(
     themeViewModel: ThemeViewModel,
     chatViewModel: ChatViewModel,
     dashboardViewModel: com.informatika.sars.viewmodel.DashboardViewModel,
+    initialTab: Int = 0,
     onRequestNew: () -> Unit = {}
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
@@ -79,7 +85,13 @@ fun StudentDashboard(
     val themeMode by themeViewModel.themeMode.collectAsState()
     val name = currentUser?.name?.split(" ")?.firstOrNull() ?: "User"
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(initialTab) }
+    
+    // Set initial tab from parameter
+    LaunchedEffect(initialTab) {
+        selectedTab = initialTab
+    }
+    
     var showNotificationDialog by remember { mutableStateOf(false) }
 
 
@@ -1717,24 +1729,21 @@ fun RequestContent(
     val processingRequests = requests.filter { it.status == RequestStatus.PENDING || it.status == RequestStatus.FORWARDED }
     val completedRequests = requests.filter { it.status == RequestStatus.APPROVED || it.status == RequestStatus.REJECTED }
 
-    PullToRefreshBox(
-        isRefreshing = isLoading,
-        onRefresh = onRefresh,
-        modifier = Modifier.padding(padding)
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(padding)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "Request Jadwal & Ruangan",
                             style = MaterialTheme.typography.headlineSmall,
@@ -1747,70 +1756,70 @@ fun RequestContent(
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
                     }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // NEW REQUEST BUTTON
-                Button(
-                    onClick = onRequestNew,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Buat Pengajuan Baru", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-            }
 
-            item {
-                SectionHeader(title = "Sedang Diproses")
-                DashboardCard {
-                    if (processingRequests.isEmpty()) {
-                        Text("Tidak ada request yang sedang diproses", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        Column {
-                            processingRequests.forEachIndexed { index, request ->
-                                RequestItem(
-                                    request = request,
-                                    onClick = { onRequestClick(request) }
-                                )
-                                if (index < processingRequests.size - 1) {
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                item {
+                    SectionHeader(title = "Sedang Diproses")
+                    DashboardCard {
+                        if (processingRequests.isEmpty()) {
+                            Text("Tidak ada request yang sedang diproses", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Column {
+                                processingRequests.forEachIndexed { index, request ->
+                                    RequestItem(
+                                        request = request,
+                                        onClick = { onRequestClick(request) }
+                                    )
+                                    if (index < processingRequests.size - 1) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                    }
                                 }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
 
-            item {
-                SectionHeader(title = "Selesai")
-                DashboardCard {
-                    if (completedRequests.isEmpty()) {
-                        Text("Belum ada request yang selesai", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        Column {
-                            completedRequests.forEachIndexed { index, request ->
-                                RequestItem(
-                                    request = request,
-                                    onClick = { onRequestClick(request) }
-                                )
-                                if (index < completedRequests.size - 1) {
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                item {
+                    SectionHeader(title = "Selesai")
+                    DashboardCard {
+                        if (completedRequests.isEmpty()) {
+                            Text("Belum ada request yang selesai", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Column {
+                                completedRequests.forEachIndexed { index, request ->
+                                    RequestItem(
+                                        request = request,
+                                        onClick = { onRequestClick(request) }
+                                    )
+                                    if (index < completedRequests.size - 1) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                    }
                                 }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // BUTTON BUAT PENGAJUAN BARU
+                    Button(
+                        onClick = onRequestNew,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Buat Pengajuan Baru", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -2084,3 +2093,97 @@ fun EmptyState(
     }
 }
 
+
+// Custom shape dengan notch di tengah untuk AI button
+class NotchedShape(
+    private val notchRadius: androidx.compose.ui.unit.Dp,
+    private val notchMargin: androidx.compose.ui.unit.Dp
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val notchRadiusPx = with(density) { notchRadius.toPx() }
+        val notchMarginPx = with(density) { notchMargin.toPx() }
+        
+        val path = androidx.compose.ui.graphics.Path().apply {
+            val centerX = size.width / 2f
+            
+            // Start from top left with rounded corner
+            moveTo(24f, 0f)
+            
+            // Top left corner arc
+            arcTo(
+                rect = androidx.compose.ui.geometry.Rect(0f, 0f, 48f, 48f),
+                startAngleDegrees = 270f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            
+            // Left edge
+            lineTo(0f, size.height - 24f)
+            
+            // Bottom left corner
+            arcTo(
+                rect = androidx.compose.ui.geometry.Rect(0f, size.height - 48f, 48f, size.height),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            
+            // Bottom edge to notch
+            lineTo(centerX - notchRadiusPx - notchMarginPx, size.height)
+            
+            // Semicircle notch UP (untuk AI button dari bawah)
+            arcTo(
+                rect = androidx.compose.ui.geometry.Rect(
+                    left = centerX - notchRadiusPx,
+                    top = size.height - notchRadiusPx * 2,
+                    right = centerX + notchRadiusPx,
+                    bottom = size.height
+                ),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = 180f,
+                forceMoveTo = false
+            )
+            
+            // Continue bottom edge
+            lineTo(size.width - 24f, size.height)
+            
+            // Bottom right corner
+            arcTo(
+                rect = androidx.compose.ui.geometry.Rect(
+                    size.width - 48f,
+                    size.height - 48f,
+                    size.width,
+                    size.height
+                ),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            
+            // Right edge
+            lineTo(size.width, 24f)
+            
+            // Top right corner
+            arcTo(
+                rect = androidx.compose.ui.geometry.Rect(
+                    size.width - 48f,
+                    0f,
+                    size.width,
+                    48f
+                ),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            
+            // Close path
+            close()
+        }
+        
+        return androidx.compose.ui.graphics.Outline.Generic(path)
+    }
+}

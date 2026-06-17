@@ -10,8 +10,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.informatika.sars.ui.screens.auth.LoginScreen
 import com.informatika.sars.ui.screens.student.StudentDashboard
 import com.informatika.sars.ui.screens.lecturer.LecturerDashboard
@@ -87,6 +89,22 @@ fun NavGraph(
                 themeViewModel = themeViewModel,
                 chatViewModel = chatViewModel,
                 dashboardViewModel = dashboardViewModel,
+                initialTab = 0,
+                onRequestNew = {
+                    navController.navigate(Screen.StudentRequest.route)
+                }
+            )
+        }
+        
+        composable("${Screen.StudentDashboard.route}/{tab}") {
+            val tabArg = it.arguments?.getString("tab")?.toIntOrNull() ?: 0
+            StudentDashboard(
+                authViewModel = authViewModel,
+                notificationViewModel = notificationViewModel,
+                themeViewModel = themeViewModel,
+                chatViewModel = chatViewModel,
+                dashboardViewModel = dashboardViewModel,
+                initialTab = tabArg,
                 onRequestNew = {
                     navController.navigate(Screen.StudentRequest.route)
                 }
@@ -106,12 +124,8 @@ fun NavGraph(
                 currentUser = currentUser,
                 dashboardViewModel = dashboardViewModel,
                 onBack = { 
-                    try {
-                        if (navController.currentBackStackEntry != null) {
-                            navController.popBackStack()
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("NavGraph", "Back navigation failed", e)
+                    navController.navigate("${Screen.StudentDashboard.route}/2") {
+                        popUpTo(Screen.StudentDashboard.route) { inclusive = true }
                     }
                 }
             )
