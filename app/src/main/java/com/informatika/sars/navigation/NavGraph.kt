@@ -87,7 +87,7 @@ fun NavGraph(
                 themeViewModel = themeViewModel,
                 chatViewModel = chatViewModel,
                 dashboardViewModel = dashboardViewModel,
-                onNavigateToRequestScreen = {
+                onRequestNew = {
                     navController.navigate(Screen.StudentRequest.route)
                 }
             )
@@ -105,7 +105,15 @@ fun NavGraph(
                 requests = requests,
                 currentUser = currentUser,
                 dashboardViewModel = dashboardViewModel,
-                onBack = { navController.navigateUp() }
+                onBack = { 
+                    try {
+                        if (navController.currentBackStackEntry != null) {
+                            navController.popBackStack()
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("NavGraph", "Back navigation failed", e)
+                    }
+                }
             )
         }
 

@@ -213,20 +213,32 @@ class DashboardViewModel : ViewModel() {
         this.currentUser = user
         realtimeJob?.cancel()
         realtimeJob = viewModelScope.launch {
-            val channel = SupabaseClient.client.realtime.channel("requests")
-            val changeFlow = channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
-                table = "change_requests"
-            }
-            changeFlow.onEach { action ->
-                fetchRequests(user)
-                try {
-                    val updated = action.decodeRecord<ValidationRequest>()
-                    if (updated.status == RequestStatus.APPROVED) {
-                        onNotify("Update Pengajuan", "Status pengajuan Anda telah diperbarui.")
+            try {
+                val channel = SupabaseClient.client.realtime.channel("requests_${user.id}")
+                
+                // IMPORTANT: Setup flow BEFORE subscribe
+                val changeFlow = channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
+                    table = "change_requests"
+                }
+                
+                // Subscribe after flow setup
+                channel.subscribe()
+                
+                // Now listen to changes
+                changeFlow.onEach { action ->
+                    fetchRequests(user)
+                    try {
+                        val updated = action.decodeRecord<ValidationRequest>()
+                        if (updated.status == RequestStatus.APPROVED) {
+                            onNotify("Update Pengajuan", "Status pengajuan Anda telah diperbarui.")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DashboardViewModel", "Decode error", e)
                     }
-                } catch (e: Exception) { }
-            }.launchIn(this)
-            channel.subscribe()
+                }.launchIn(this)
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Realtime setup failed", e)
+            }
         }
     }
 

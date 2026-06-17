@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,13 +70,35 @@ fun StudentRequestScreen(
     val submitSuccess by dashboardViewModel.submitSuccess.collectAsState()
 
     var currentStep by remember { mutableIntStateOf(1) }
+    var shouldNavigateBack by remember { mutableStateOf(false) }
 
-    // Back Handler: intercept back presses to go back one step instead of exiting
-    androidx.activity.compose.BackHandler(enabled = true) {
-        if (currentStep > 1) {
-            currentStep--
-        } else {
-            onBack()
+    // Cleanup on exit
+    DisposableEffect(Unit) {
+        onDispose {
+            dashboardViewModel.resetSubmitStatus()
+        }
+    }
+
+    // Handle submit results
+    LaunchedEffect(submitSuccess) {
+        if (submitSuccess == true) {
+            Toast.makeText(context, "Pengajuan berhasil dikirim!", Toast.LENGTH_SHORT).show()
+            dashboardViewModel.resetSubmitStatus()
+            shouldNavigateBack = true
+        } else if (submitSuccess == false) {
+            Toast.makeText(context, "Gagal mengirim pengajuan. Silakan coba lagi.", Toast.LENGTH_LONG).show()
+            dashboardViewModel.resetSubmitStatus()
+        }
+    }
+    
+    // Safe navigation handler
+    LaunchedEffect(shouldNavigateBack) {
+        if (shouldNavigateBack) {
+            try {
+                onBack()
+            } catch (e: Exception) {
+                android.util.Log.e("StudentRequestScreen", "Navigation failed", e)
+            }
         }
     }
 
@@ -117,30 +141,7 @@ fun StudentRequestScreen(
     var proposedTimeSlotStr by remember { mutableStateOf("") }
     var selectedRequestForDetail by remember { mutableStateOf<ValidationRequest?>(null) }
 
-    // Handle submit results
-    LaunchedEffect(submitSuccess) {
-        if (submitSuccess == true) {
-            Toast.makeText(context, "Pengajuan berhasil dikirim!", Toast.LENGTH_SHORT).show()
-            dashboardViewModel.resetSubmitStatus()
-            // Clear and go to start step
-            currentStep = 1
-            selectedScheduleItem = null
-            selectedClassFilter = ""
-            selectedSemesterFilter = ""
-            requestType = "TEMPORARY"
-            targetDate = ""
-            effectiveFromDate = ""
-            proposedDay = ""
-            proposedStartTime = ""
-            proposedEndTime = ""
-            proposedTimeSlotStr = ""
-            selectedRoom = null
-            reason = ""
-        } else if (submitSuccess == false) {
-            Toast.makeText(context, "Gagal mengirim pengajuan. Silakan coba lagi.", Toast.LENGTH_LONG).show()
-            dashboardViewModel.resetSubmitStatus()
-        }
-    }
+    // Handle submit results - REMOVED old LaunchedEffect here
 
     Scaffold(
         topBar = {
@@ -151,7 +152,7 @@ fun StudentRequestScreen(
                         if (currentStep > 1) {
                             currentStep--
                         } else {
-                            onBack()
+                            shouldNavigateBack = true
                         }
                     }) {
                         Icon(
@@ -792,6 +793,56 @@ fun StudentRequestScreen(
                     }
                 }
 
+                // Submit Button - Only if on step 6
+                if (currentStep == 6) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                if (currentUser == null) {
+                                    Toast.makeText(context, "User tidak terotentikasi", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                if (selectedRoom == null) {
+                                    Toast.makeText(context, "Pilih ruangan pengganti terlebih dahulu", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                if (selectedScheduleItem == null) {
+                                    Toast.makeText(context, "Data jadwal tidak valid", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                dashboardViewModel.submitRequest(
+                                    requesterId = currentUser.id,
+                                    scheduleId = selectedScheduleItem!!.id,
+                                    semesterId = selectedScheduleItem!!.semesterId ?: 1L,
+                                    requestType = requestType,
+                                    reason = reason,
+                                    targetDate = if (requestType == "TEMPORARY") targetDate else null,
+                                    effectiveFromDate = if (requestType == "PERMANENT") effectiveFromDate else null,
+                                    proposedDay = proposedDay,
+                                    proposedStartTime = proposedStartTime,
+                                    proposedEndTime = proposedEndTime,
+                                    proposedRoomId = selectedRoom?.id
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(horizontal = 16.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            enabled = !isSubmitting
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+                            } else {
+                                Text("📤 Kirim Pengajuan", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                }
+
                 // Section 2: Request History
                 item {
                     Text(
@@ -828,7 +879,7 @@ fun StudentRequestScreen(
                     }
                 } else {
                     items(requests) { request ->
-                        HistoryItemCard(request, onClick = { selectedRequestForDetail = request })
+                        SimpleRequestButton(request)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     item {
@@ -839,171 +890,11 @@ fun StudentRequestScreen(
         }
     }
 
-    // Detail Request Modal Dialog
-    if (selectedRequestForDetail != null) {
-        val request = selectedRequestForDetail!!
-        val statusColor = when (request.status) {
-            RequestStatus.PENDING -> Warning
-            RequestStatus.FORWARDED -> com.informatika.sars.ui.theme.Info
-            RequestStatus.APPROVED -> Success
-            RequestStatus.REJECTED -> Error
-        }
-        val statusText = when (request.status) {
-            RequestStatus.PENDING -> "Menunggu"
-            RequestStatus.FORWARDED -> "Diteruskan"
-            RequestStatus.APPROVED -> "Disetujui"
-            RequestStatus.REJECTED -> "Ditolak"
-        }
 
-        Dialog(
-            onDismissRequest = { selectedRequestForDetail = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Header with close
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Detail Pengajuan",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.headlineSmall
-                        )
-                        IconButton(onClick = { selectedRequestForDetail = null }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
-                    
-                    // Content
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                            .heightIn(max = 500.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = request.requestCode ?: "REQ-UNKNOWN",
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = statusColor.copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, statusColor.copy(alpha = 0.3f))
-                            ) {
-                                Text(
-                                    text = statusText,
-                                    color = statusColor,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                        
-                        HorizontalDivider()
-                        
-                        Column {
-                            Text("Mata Kuliah", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                            Text(request.subject ?: "-", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        }
-                        
-                        Column {
-                            Text("Tipe Pengajuan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                            Text(request.requestType ?: "-", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        
-                        if (request.targetDate != null) {
-                            Column {
-                                Text("Tanggal Pertemuan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                Text(request.targetDate ?: "-", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        
-                        if (request.effectiveFromDate != null) {
-                            Column {
-                                Text("Tanggal Efektif", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                Text(request.effectiveFromDate ?: "-", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-
-                        if (request.proposedDay != null || request.proposedStartTime != null || request.proposedRoomName != null) {
-                            Column {
-                                Text("Usulan Pengganti", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    buildString {
-                                        if (request.proposedRoomName != null) append("Ruangan: ${request.proposedRoomName}\n")
-                                        if (request.proposedDay != null) append("Hari: ${request.proposedDay}\n")
-                                        if (request.proposedStartTime != null) append("Waktu: ${request.proposedStartTime} - ${request.proposedEndTime}")
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-
-                        Column {
-                            Text("Alasan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                            Text(request.reason ?: "-", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
-                    
-                    // Button full width
-                    Button(
-                        onClick = { selectedRequestForDetail = null },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                    ) {
-                        Text(
-                            "Tutup",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
-fun HistoryItemCard(request: ValidationRequest, onClick: () -> Unit) {
+fun SimpleRequestButton(request: ValidationRequest) {
     val statusColor = when (request.status) {
         RequestStatus.PENDING -> Warning
         RequestStatus.FORWARDED -> com.informatika.sars.ui.theme.Info
@@ -1017,43 +908,46 @@ fun HistoryItemCard(request: ValidationRequest, onClick: () -> Unit) {
         RequestStatus.REJECTED -> "Ditolak"
     }
     
-    Card(
+    Button(
+        onClick = { },
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .height(72.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        contentPadding = PaddingValues(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                Text(
+                    request.subject ?: "Mata Kuliah",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "${request.requestCode} • ${request.requestType ?: ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = statusColor.copy(alpha = 0.2f)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        request.subject ?: "Mata Kuliah",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        "Req: ${request.requestCode}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = statusColor.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        statusText,
-                        modifier = Modifier.padding(6.dp, 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    statusText,
+                    modifier = Modifier.padding(8.dp, 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

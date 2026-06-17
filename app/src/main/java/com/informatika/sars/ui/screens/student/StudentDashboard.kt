@@ -65,7 +65,7 @@ fun StudentDashboard(
     themeViewModel: ThemeViewModel,
     chatViewModel: ChatViewModel,
     dashboardViewModel: com.informatika.sars.viewmodel.DashboardViewModel,
-    onNavigateToRequestScreen: () -> Unit = {}
+    onRequestNew: () -> Unit = {}
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     val schedules by dashboardViewModel.schedules.collectAsState()
@@ -81,25 +81,10 @@ fun StudentDashboard(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showNotificationDialog by remember { mutableStateOf(false) }
-    var selectedRequestForDetail by remember { mutableStateOf<ValidationRequest?>(null) }
 
 
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
-
-    androidx.activity.compose.BackHandler(enabled = true) {
-        if (selectedTab != 0) {
-            selectedTab = 0
-        } else {
-            val currentTime = System.currentTimeMillis()
-            if (currentTime - lastBackPressTime < 2000) {
-                android.os.Process.killProcess(android.os.Process.myPid())
-            } else {
-                Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
-                lastBackPressTime = currentTime
-            }
-        }
-    }
 
     // Fetch data and start realtime listener on start
     LaunchedEffect(currentUser) {
@@ -226,18 +211,7 @@ fun StudentDashboard(
                 }
             }
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onRequestNew,
-                shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 12.dp),
-                modifier = Modifier.size(56.dp)
-            ) {
-                Text("📝", fontSize = 24.sp)
-            }
-        },
+        floatingActionButton = { },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         when (selectedTab) {
@@ -252,8 +226,7 @@ fun StudentDashboard(
                 onRefresh = { dashboardViewModel.fetchData(currentUser) },
                 onViewAllJadwal = { selectedTab = 1 },
                 onViewAllRequest = { selectedTab = 2 },
-                onRequestNew = onNavigateToRequestScreen,
-                onRequestClick = { selectedRequestForDetail = it }
+                onRequestNew = onRequestNew
             )
             1 -> ScheduleContent(
                 padding = padding,
@@ -267,8 +240,7 @@ fun StudentDashboard(
                 requests = requests,
                 isLoading = isLoading,
                 onRefresh = { dashboardViewModel.fetchData(currentUser) },
-                onRequestNew = onNavigateToRequestScreen,
-                onRequestClick = { selectedRequestForDetail = it }
+                onRequestNew = onRequestNew
             )
             3 -> AIAssistantContent(padding, chatViewModel)
             4 -> SettingsContent(padding, authViewModel, themeViewModel)
@@ -347,13 +319,6 @@ fun StudentDashboard(
                 }
             }
         }
-    }
-
-    if (selectedRequestForDetail != null) {
-        RequestDetailDialog(
-            request = selectedRequestForDetail!!,
-            onDismiss = { selectedRequestForDetail = null }
-        )
     }
 }
 
@@ -1783,6 +1748,24 @@ fun RequestContent(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // NEW REQUEST BUTTON
+                Button(
+                    onClick = onRequestNew,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Buat Pengajuan Baru", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
@@ -2101,111 +2084,3 @@ fun EmptyState(
     }
 }
 
-@Composable
-fun RequestDetailDialog(request: ValidationRequest, onDismiss: () -> Unit) {
-    val statusColor = when (request.status) {
-        RequestStatus.PENDING -> Warning
-        RequestStatus.FORWARDED -> PrimaryBlue
-        RequestStatus.APPROVED -> Success
-        RequestStatus.REJECTED -> Error
-    }
-    val statusText = when (request.status) {
-        RequestStatus.PENDING -> "Menunggu"
-        RequestStatus.FORWARDED -> "Diteruskan"
-        RequestStatus.APPROVED -> "Disetujui"
-        RequestStatus.REJECTED -> "Ditolak"
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Detail Pengajuan", fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = request.requestCode ?: "REQ-UNKNOWN",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = statusColor.copy(alpha = 0.1f)
-                    ) {
-                        Text(
-                            text = statusText,
-                            color = statusColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                
-                HorizontalDivider()
-
-                Column {
-                    Text("Mata Kuliah", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(request.subject ?: "-", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-
-                Column {
-                    Text("Tipe Request", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(request.requestType ?: "-", style = MaterialTheme.typography.bodyMedium)
-                }
-
-                Column {
-                    Text("Ruangan Asal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(request.room ?: "-", style = MaterialTheme.typography.bodyMedium)
-                }
-
-                if (request.targetDate != null) {
-                    Column {
-                        Text("Tanggal Pertemuan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text(request.targetDate ?: "-", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                if (request.effectiveFromDate != null) {
-                    Column {
-                        Text("Tanggal Efektif", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text(request.effectiveFromDate ?: "-", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                if (request.proposedDay != null || request.proposedStartTime != null || request.proposedRoomName != null) {
-                    Column {
-                        Text("Usulan Pengganti", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text(
-                            buildString {
-                                if (request.proposedRoomName != null) append("Ruangan: ${request.proposedRoomName}\n")
-                                if (request.proposedDay != null) append("Hari: ${request.proposedDay}\n")
-                                if (request.proposedStartTime != null) append("Waktu: ${request.proposedStartTime} - ${request.proposedEndTime}")
-                            },
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-
-                Column {
-                    Text("Alasan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(request.reason ?: "-", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Tutup")
-            }
-        }
-    )
-}

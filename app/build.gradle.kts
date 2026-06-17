@@ -4,6 +4,8 @@ plugins {
     kotlin("plugin.serialization") version "2.1.0"
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.informatika.sars"
     compileSdk {
@@ -22,7 +24,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Load secrets from local.properties
-        val localProperties = java.util.Properties()
+        val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
             localPropertiesFile.inputStream().use { localProperties.load(it) }
@@ -47,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
