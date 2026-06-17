@@ -226,6 +226,18 @@ fun StudentDashboard(
                 }
             }
         },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onRequestNew,
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 12.dp),
+                modifier = Modifier.size(56.dp)
+            ) {
+                Text("📝", fontSize = 24.sp)
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         when (selectedTab) {
@@ -1769,13 +1781,6 @@ fun RequestContent(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
-                    }
-                    Button(
-                        onClick = onRequestNew,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Buat Pengajuan")
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
