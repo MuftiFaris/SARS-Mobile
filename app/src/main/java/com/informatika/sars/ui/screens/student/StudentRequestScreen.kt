@@ -810,6 +810,10 @@ fun StudentRequestScreen(
                                     Toast.makeText(context, "Data jadwal tidak valid", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
+                                if (proposedDay.isEmpty() || proposedStartTime.isEmpty() || proposedEndTime.isEmpty()) {
+                                    Toast.makeText(context, "Jadwal pengganti belum dipilih dengan lengkap", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
                                 dashboardViewModel.submitRequest(
                                     requesterId = currentUser.id,
                                     scheduleId = selectedScheduleItem!!.id,

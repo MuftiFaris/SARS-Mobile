@@ -180,9 +180,9 @@ class DashboardViewModel : ViewModel() {
                     "status" to "PENDING",
                     "conflict_checked" to false,
                     "has_conflict" to false,
-                    "proposed_day" to (proposedDay ?: ""),
-                    "proposed_start_time" to (proposedStartTime ?: ""),
-                    "proposed_end_time" to (proposedEndTime ?: ""),
+                    "proposed_day" to proposedDay,
+                    "proposed_start_time" to proposedStartTime,
+                    "proposed_end_time" to proposedEndTime,
                     "proposed_room_id" to proposedRoomId,
                     "target_date" to targetDate,
                     "effective_from_date" to effectiveFromDate,
@@ -192,8 +192,8 @@ class DashboardViewModel : ViewModel() {
                     "time_slot" to timeSlot
                 )
                 
-                // Remove null values
-                val cleanedRequest = newRequest.filterValues { it != null }
+                // Remove null & empty string values
+                val cleanedRequest = newRequest.filterValues { it != null && it != "" }
                 
                 Log.d("DashboardViewModel", "Submitting request with ${cleanedRequest.size} fields")
                 cleanedRequest.forEach { (k, v) -> Log.d("DashboardViewModel", "$k = $v") }
@@ -206,6 +206,7 @@ class DashboardViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Submit failed: ${e.message}", e)
                 Log.e("DashboardViewModel", "Error cause: ${e.cause}")
+                Log.e("DashboardViewModel", "Stack trace:", e)
                 e.printStackTrace()
                 _submitSuccess.value = false
             } finally {
