@@ -150,7 +150,11 @@ class DashboardViewModel : ViewModel() {
         proposedDay: String? = null,
         proposedStartTime: String? = null,
         proposedEndTime: String? = null,
-        proposedRoomId: Long? = null
+        proposedRoomId: Long? = null,
+        studentName: String? = null,
+        subject: String? = null,
+        room: String? = null,
+        timeSlot: String? = null
     ) {
         viewModelScope.launch {
             _isSubmitting.value = true
@@ -181,7 +185,11 @@ class DashboardViewModel : ViewModel() {
                     "proposed_end_time" to (proposedEndTime ?: ""),
                     "proposed_room_id" to proposedRoomId,
                     "target_date" to targetDate,
-                    "effective_from_date" to effectiveFromDate
+                    "effective_from_date" to effectiveFromDate,
+                    "student_name" to studentName,
+                    "subject" to subject,
+                    "room" to room,
+                    "time_slot" to timeSlot
                 )
                 
                 // Remove null values

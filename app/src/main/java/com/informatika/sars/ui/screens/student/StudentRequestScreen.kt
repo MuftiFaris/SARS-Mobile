@@ -38,7 +38,6 @@ import androidx.compose.ui.window.Dialog
 import com.informatika.sars.ui.components.DashboardCard
 import com.informatika.sars.ui.components.PrimaryButton
 import com.informatika.sars.ui.components.SecondaryButton
-import com.informatika.sars.ui.components.StepProgressHeader
 import androidx.compose.ui.window.DialogProperties
 import com.informatika.sars.data.model.RequestStatus
 import com.informatika.sars.data.model.Room
@@ -822,7 +821,11 @@ fun StudentRequestScreen(
                                     proposedDay = proposedDay,
                                     proposedStartTime = proposedStartTime,
                                     proposedEndTime = proposedEndTime,
-                                    proposedRoomId = selectedRoom?.id
+                                    proposedRoomId = selectedRoom?.id,
+                                    studentName = currentUser?.name,
+                                    subject = selectedScheduleItem?.course?.name,
+                                    room = selectedRoom?.name,
+                                    timeSlot = proposedTimeSlotStr
                                 )
                             },
                             modifier = Modifier
@@ -879,7 +882,7 @@ fun StudentRequestScreen(
                     }
                 } else {
                     items(requests) { request ->
-                        SimpleRequestButton(request)
+                        HistoryItemCard(request = request, onClick = { })
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     item {
@@ -889,12 +892,10 @@ fun StudentRequestScreen(
             }
         }
     }
-
-
 }
 
 @Composable
-fun SimpleRequestButton(request: ValidationRequest) {
+fun HistoryItemCard(request: ValidationRequest, onClick: () -> Unit) {
     val statusColor = when (request.status) {
         RequestStatus.PENDING -> Warning
         RequestStatus.FORWARDED -> com.informatika.sars.ui.theme.Info
