@@ -559,16 +559,31 @@ fun StudentRequestScreen(
                                     // Dynamic available slots - exclude current schedule being replaced
                                     val availableSlots = remember(proposedDay, schedules, rooms, selectedScheduleItem) {
                                         val list = mutableListOf<Triple<Room, String, String>>()
+                                        val selectedLecturerName = selectedScheduleItem?.lecturerName // Get lecturer of current class
+                                        
                                         for (room in rooms) {
                                             for (slot in timeSlots) {
                                                 // Check if this slot is occupied by any OTHER schedule (not the one being replaced)
-                                                val isOccupied = schedules.any { sched ->
+                                                val isRoomOccupied = schedules.any { sched ->
                                                     sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule being replaced
                                                     sched.roomId == room.id &&
                                                     sched.day.equals(proposedDay, ignoreCase = true) &&
                                                     sched.startTime == slot.first
                                                 }
-                                                if (!isOccupied) {
+                                                
+                                                // Check if lecturer is already teaching another class in this time slot
+                                                val isLecturerBusy = if (selectedLecturerName != null && selectedLecturerName != "No Lecturer") {
+                                                    schedules.any { sched ->
+                                                        sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule
+                                                        sched.day.equals(proposedDay, ignoreCase = true) &&
+                                                        sched.startTime == slot.first &&
+                                                        sched.lecturerName == selectedLecturerName
+                                                    }
+                                                } else {
+                                                    false
+                                                }
+                                                
+                                                if (!isRoomOccupied && !isLecturerBusy) {
                                                     list.add(Triple(room, slot.first, slot.second))
                                                 }
                                             }
