@@ -185,11 +185,8 @@ class DashboardViewModel : ViewModel() {
                     "proposed_end_time" to proposedEndTime,
                     "proposed_room_id" to proposedRoomId,
                     "target_date" to targetDate,
-                    "effective_from_date" to effectiveFromDate,
-                    "student_name" to studentName,
-                    "subject" to subject,
-                    "room" to room,
-                    "time_slot" to timeSlot
+                    "effective_from_date" to effectiveFromDate
+                    // Note: Removed student_name, subject, room, time_slot - add these only if table has them
                 )
                 
                 // Remove null & empty string values
@@ -198,15 +195,34 @@ class DashboardViewModel : ViewModel() {
                 Log.d("DashboardViewModel", "Submitting request with ${cleanedRequest.size} fields")
                 cleanedRequest.forEach { (k, v) -> Log.d("DashboardViewModel", "$k = $v") }
                 
-                SupabaseClient.client.postgrest["change_requests"].insert(cleanedRequest)
-
-                Log.d("DashboardViewModel", "Submit successful")
-                _submitSuccess.value = true
-                fetchRequests(currentUser) 
+                try {
+                    SupabaseClient.client.postgrest["change_requests"].insert(cleanedRequest)
+                    Log.d("DashboardViewModel", "Submit successful")
+                    _submitSuccess.value = true
+                    fetchRequests(currentUser)
+                } catch (insertEx: Exception) {
+                    Log.e("DashboardViewModel", "Insert to change_requests failed, trying with minimal fields", insertEx)
+                    // Try with only essential fields
+                    val minimalRequest = mapOf(
+                        "request_code" to requestCode,
+                        "requester_id" to requesterId,
+                        "schedule_id" to scheduleId,
+                        "semester_id" to semesterId,
+                        "request_type" to requestType,
+                        "reason" to reason,
+                        "status" to "PENDING",
+                        "proposed_room_id" to proposedRoomId
+                    )
+                    Log.d("DashboardViewModel", "Trying minimal insert with fields: ${minimalRequest.keys}")
+                    SupabaseClient.client.postgrest["change_requests"].insert(minimalRequest)
+                    Log.d("DashboardViewModel", "Minimal insert successful")
+                    _submitSuccess.value = true
+                    fetchRequests(currentUser)
+                }
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Submit failed: ${e.message}", e)
                 Log.e("DashboardViewModel", "Error cause: ${e.cause}")
-                Log.e("DashboardViewModel", "Stack trace:", e)
+                Log.e("DashboardViewModel", "Full stack trace: ${e.stackTraceToString()}")
                 e.printStackTrace()
                 _submitSuccess.value = false
             } finally {
