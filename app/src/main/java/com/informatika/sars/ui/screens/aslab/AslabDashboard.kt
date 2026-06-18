@@ -29,8 +29,8 @@ fun AslabDashboard(
     val requests by dashboardViewModel.requests.collectAsState()
     val isLoading by dashboardViewModel.isLoading.collectAsState()
     
-    val pendingRequests = requests.filter { it.status == com.informatika.sars.data.model.RequestStatus.PENDING }
-    val validatedRequests = requests.filter { it.status != com.informatika.sars.data.model.RequestStatus.PENDING }
+    val pendingRequests = requests.filter { it.status == "PENDING" }
+    val validatedRequests = requests.filter { it.status != "PENDING" }
 
     LaunchedEffect(currentUser) {
         dashboardViewModel.fetchData(currentUser)
@@ -155,8 +155,8 @@ fun ValidationItem(
 @Composable
 fun RequestHistoryItem(request: com.informatika.sars.data.model.ValidationRequest) {
     val statusColor = when(request.status) {
-        com.informatika.sars.data.model.RequestStatus.APPROVED -> Success
-        com.informatika.sars.data.model.RequestStatus.REJECTED -> MaterialTheme.colorScheme.error
+        "APPROVED" -> Success
+        "REJECTED" -> MaterialTheme.colorScheme.error
         else -> Warning
     }
     
@@ -178,7 +178,7 @@ fun RequestHistoryItem(request: com.informatika.sars.data.model.ValidationReques
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    request.status.name,
+                    request.status ?: "PENDING",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     color = statusColor,
                     style = MaterialTheme.typography.labelSmall,

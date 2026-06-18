@@ -999,10 +999,11 @@ fun DashboardContent(
 @Composable
 fun CompactRequestStatusItem(request: ValidationRequest, onClick: () -> Unit = {}) {
     val (statusText, statusColor) = when (request.status) {
-        RequestStatus.PENDING -> "Menunggu" to Warning
-        RequestStatus.FORWARDED -> "Diteruskan" to PrimaryBlue
-        RequestStatus.APPROVED -> "Disetujui" to Success
-        RequestStatus.REJECTED -> "Ditolak" to Color.Red
+        "PENDING" -> "Menunggu" to Warning
+        "FORWARDED" -> "Diteruskan" to PrimaryBlue
+        "APPROVED" -> "Disetujui" to Success
+        "REJECTED" -> "Ditolak" to Color.Red
+        else -> "Unknown" to Color.Gray
     }
 
     Row(
@@ -1043,10 +1044,11 @@ fun CompactRequestStatusItem(request: ValidationRequest, onClick: () -> Unit = {
 @Composable
 fun RequestItem(request: ValidationRequest, onClick: () -> Unit = {}) {
     val (statusText, statusColor) = when (request.status) {
-        RequestStatus.PENDING -> "Reviewing" to Warning
-        RequestStatus.FORWARDED -> "Forwarded" to PrimaryBlue
-        RequestStatus.APPROVED -> "Published" to Success
-        RequestStatus.REJECTED -> "Rejected" to Color.Red
+        "PENDING" -> "Reviewing" to Warning
+        "FORWARDED" -> "Forwarded" to PrimaryBlue
+        "APPROVED" -> "Published" to Success
+        "REJECTED" -> "Rejected" to Color.Red
+        else -> "Unknown" to Color.Gray
     }
     Row(
         modifier = Modifier
@@ -1726,8 +1728,8 @@ fun RequestContent(
     onRequestNew: () -> Unit,
     onRequestClick: (ValidationRequest) -> Unit = {}
 ) {
-    val processingRequests = requests.filter { it.status == RequestStatus.PENDING || it.status == RequestStatus.FORWARDED }
-    val completedRequests = requests.filter { it.status == RequestStatus.APPROVED || it.status == RequestStatus.REJECTED }
+    val processingRequests = requests.filter { it.status == "PENDING" || it.status == "FORWARDED" }
+    val completedRequests = requests.filter { it.status == "APPROVED" || it.status == "REJECTED" }
 
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(

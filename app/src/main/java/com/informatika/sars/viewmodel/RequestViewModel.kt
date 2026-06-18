@@ -6,9 +6,11 @@ import com.informatika.sars.data.model.AlternativeSlot
 import com.informatika.sars.data.model.RequestResponse
 import com.informatika.sars.data.model.SubmitRequestDto
 import com.informatika.sars.data.repository.RequestRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class StudentRequestUiState {
     object Idle : StudentRequestUiState()
@@ -18,8 +20,9 @@ sealed class StudentRequestUiState {
     data class Error(val message: String) : StudentRequestUiState()
 }
 
-class RequestViewModel(
-    private val repository: RequestRepository = RequestRepository()
+@HiltViewModel
+class RequestViewModel @Inject constructor(
+    private val repository: RequestRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<StudentRequestUiState>(StudentRequestUiState.Idle)

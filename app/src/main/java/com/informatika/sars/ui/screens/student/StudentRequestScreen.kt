@@ -918,16 +918,18 @@ fun StudentRequestScreen(
 @Composable
 fun HistoryItemCard(request: ValidationRequest, onClick: () -> Unit) {
     val statusColor = when (request.status) {
-        RequestStatus.PENDING -> Warning
-        RequestStatus.FORWARDED -> com.informatika.sars.ui.theme.Info
-        RequestStatus.APPROVED -> Success
-        RequestStatus.REJECTED -> Error
+        "PENDING" -> Warning
+        "FORWARDED" -> com.informatika.sars.ui.theme.Info
+        "APPROVED" -> Success
+        "REJECTED" -> Error
+        else -> Color.Gray
     }
     val statusText = when (request.status) {
-        RequestStatus.PENDING -> "Menunggu"
-        RequestStatus.FORWARDED -> "Diteruskan"
-        RequestStatus.APPROVED -> "Disetujui"
-        RequestStatus.REJECTED -> "Ditolak"
+        "PENDING" -> "Menunggu"
+        "FORWARDED" -> "Diteruskan"
+        "APPROVED" -> "Disetujui"
+        "REJECTED" -> "Ditolak"
+        else -> "Unknown"
     }
     
     Button(

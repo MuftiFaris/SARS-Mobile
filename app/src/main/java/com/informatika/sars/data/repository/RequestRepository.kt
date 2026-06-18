@@ -7,12 +7,13 @@ import com.informatika.sars.data.remote.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-class RequestRepository {
+class RequestRepository @Inject constructor() {
 
     suspend fun submitJadwalRequest(dto: SubmitRequestDto): Result<RequestResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
-            // Convert DTO to ValidationRequest for insertion
+            // Build ValidationRequest from DTO
             val request = ValidationRequest(
                 scheduleId = dto.scheduleId,
                 requestType = dto.requestType,
@@ -22,20 +23,53 @@ class RequestRepository {
                 proposedStartTime = dto.proposedStartTime,
                 proposedEndTime = dto.proposedEndTime,
                 proposedRoomId = dto.proposedRoomId,
-                reason = dto.reason
+                reason = dto.reason,
+                status = "PENDING"
             )
 
-            // Insert into validation_requests table using Supabase Postgrest
-            SupabaseClient.client.postgrest.from("validation_requests").insert(request)
+            // Insert to Supabase validation_requests table
+            SupabaseClient.client.postgrest
+                .from("validation_requests")
+                .insert(request)
 
             // Return success response
-            val result = RequestResponse(
+            val response = RequestResponse(
+                success = true,
+                requestCode = "REQ-${System.currentTimeMillis()}",
+                hasConflict = false,
+                alternatives = null,
+                message = "Pengajuan berhasil dikirim"
+            )
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(Exception("Supabase error: ${e.message}"))
+        }
+    }
+
+    suspend fun checkSlotConflict(dto: SubmitRequestDto): Result<RequestResponse> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            // Query Supabase untuk cek conflict
+            val existingRequests = SupabaseClient.client.postgrest
+                .from("validation_requests")
+                .select()
+                .decodeList<ValidationRequest>()
+
+            val hasConflict = existingRequests.any { existing ->
+                existing.scheduleId == dto.scheduleId &&
+                existing.proposedDay == dto.proposedDay &&
+                existing.proposedStartTime == dto.proposedStartTime &&
+                existing.proposedEndTime == dto.proposedEndTime &&
+                existing.status != "REJECTED"
+            }
+
+            val response = RequestResponse(
                 success = true,
                 requestCode = null,
-                hasConflict = false,
-                alternatives = null
+                hasConflict = hasConflict,
+                alternatives = emptyList(),
+                message = if (hasConflict) "Ada jadwal yang bentrok" else "Slot tersedia"
             )
-            Result.success(result)
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(Exception("Supabase error: ${e.message}"))
         }

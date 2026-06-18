@@ -18,6 +18,9 @@ import android.util.Log
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.realtime.PostgresAction
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.decodeRecord
 import io.github.jan.supabase.realtime.postgresChangeFlow
@@ -173,51 +176,46 @@ class DashboardViewModel : ViewModel() {
                 
                 val requestCode = "REQ-${System.currentTimeMillis() / 1000}"
 
-                val newRequest = mutableMapOf<String, Any?>(
-                    "request_code" to requestCode,
-                    "requester_id" to requesterId,
-                    "schedule_id" to scheduleId,
-                    "semester_id" to semesterId,
-                    "request_type" to requestType,
-                    "reason" to reason,
-                    "status" to "PENDING",
-                    "conflict_checked" to false,
-                    "has_conflict" to false,
-                    "proposed_day" to proposedDay,
-                    "proposed_start_time" to proposedStartTime,
-                    "proposed_end_time" to proposedEndTime,
-                    "proposed_room_id" to proposedRoomId,
-                    "target_date" to targetDate,
-                    "effective_from_date" to effectiveFromDate
-                    // Note: Removed student_name, subject, room, time_slot - add these only if table has them
-                )
+                val requestJson = buildJsonObject {
+                    put("request_code", JsonPrimitive(requestCode))
+                    put("requester_id", JsonPrimitive(requesterId))
+                    put("schedule_id", JsonPrimitive(scheduleId))
+                    put("semester_id", JsonPrimitive(semesterId))
+                    put("request_type", JsonPrimitive(requestType))
+                    put("reason", JsonPrimitive(reason))
+                    put("status", JsonPrimitive("PENDING_ASLAB"))
+                    put("conflict_checked", JsonPrimitive(false))
+                    put("has_conflict", JsonPrimitive(false))
+                    proposedDay?.let { put("proposed_day", JsonPrimitive(it)) }
+                    proposedStartTime?.let { put("proposed_start_time", JsonPrimitive(it)) }
+                    proposedEndTime?.let { put("proposed_end_time", JsonPrimitive(it)) }
+                    proposedRoomId?.let { put("proposed_room_id", JsonPrimitive(it)) }
+                    targetDate?.let { put("target_date", JsonPrimitive(it)) }
+                    effectiveFromDate?.let { put("effective_from_date", JsonPrimitive(it)) }
+                }
                 
-                // Remove null & empty string values
-                val cleanedRequest = newRequest.filterValues { it != null && it != "" }
-                
-                Log.d("DashboardViewModel", "Submitting request with ${cleanedRequest.size} fields")
-                cleanedRequest.forEach { (k, v) -> Log.d("DashboardViewModel", "$k = $v") }
+                Log.d("DashboardViewModel", "Submitting request JSON: $requestJson")
                 
                 try {
-                    SupabaseClient.client.postgrest["change_requests"].insert(cleanedRequest)
+                    SupabaseClient.client.postgrest["change_requests"].insert(requestJson)
                     Log.d("DashboardViewModel", "Submit successful")
                     _submitSuccess.value = true
                     fetchRequests(currentUser)
                 } catch (insertEx: Exception) {
-                    Log.e("DashboardViewModel", "Insert to change_requests failed, trying with minimal fields", insertEx)
-                    // Try with only essential fields
-                    val minimalRequest = mapOf(
-                        "request_code" to requestCode,
-                        "requester_id" to requesterId,
-                        "schedule_id" to scheduleId,
-                        "semester_id" to semesterId,
-                        "request_type" to requestType,
-                        "reason" to reason,
-                        "status" to "PENDING",
-                        "proposed_room_id" to proposedRoomId
-                    )
-                    Log.d("DashboardViewModel", "Trying minimal insert with fields: ${minimalRequest.keys}")
-                    SupabaseClient.client.postgrest["change_requests"].insert(minimalRequest)
+                    Log.e("DashboardViewModel", "Insert to change_requests failed", insertEx)
+                    // Try minimal
+                    val minimalJson = buildJsonObject {
+                        put("request_code", JsonPrimitive(requestCode))
+                        put("requester_id", JsonPrimitive(requesterId))
+                        put("schedule_id", JsonPrimitive(scheduleId))
+                        put("semester_id", JsonPrimitive(semesterId))
+                        put("request_type", JsonPrimitive(requestType))
+                        put("reason", JsonPrimitive(reason))
+                        put("status", JsonPrimitive("PENDING_ASLAB"))
+                        proposedRoomId?.let { put("proposed_room_id", JsonPrimitive(it)) }
+                    }
+                    Log.d("DashboardViewModel", "Trying minimal: $minimalJson")
+                    SupabaseClient.client.postgrest["change_requests"].insert(minimalJson)
                     Log.d("DashboardViewModel", "Minimal insert successful")
                     _submitSuccess.value = true
                     fetchRequests(currentUser)

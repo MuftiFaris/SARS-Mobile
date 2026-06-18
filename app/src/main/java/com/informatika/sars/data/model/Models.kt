@@ -233,7 +233,7 @@ data class ValidationRequest(
     val reason: String? = null,
     @SerialName("attachment_url")
     val attachmentUrl: String? = null,
-    val status: RequestStatus = RequestStatus.PENDING,
+    val status: String = "PENDING",
     @SerialName("conflict_checked")
     val conflictChecked: Boolean = false,
     @SerialName("has_conflict")
@@ -241,54 +241,23 @@ data class ValidationRequest(
     @SerialName("created_at")
     val timestamp: String? = null,
     @SerialName("updated_at")
-    val updatedAt: String? = null,
-
-    // Relationships
-    @SerialName("schedules")
-    private val schedulesRaw: JsonElement? = null,
-    @SerialName("proposed_room")
-    private val proposedRoomRaw: JsonElement? = null
+    val updatedAt: String? = null
 ) {
-    val subject: String? get() = parseRelation<ScheduleItem>(schedulesRaw)?.course?.name
-    val room: String? get() = parseRelation<ScheduleItem>(schedulesRaw)?.room?.name
-    val proposedRoomName: String? get() = parseRelation<Room>(proposedRoomRaw)?.name
+    // Helper computed properties (not serialized)
+    @kotlinx.serialization.Transient
+    val subject: String? = null
     
-    @SerialName("users")
-    private val usersRaw: JsonElement? = null
+    @kotlinx.serialization.Transient
+    val room: String? = null
     
-    val studentName: String? get() {
-        if (usersRaw == null || usersRaw.toString() == "null") return "Student"
-        val json = Json { ignoreUnknownKeys = true }
-        return try {
-            val dbUser = try {
-                json.decodeFromJsonElement<DbUser>(usersRaw)
-            } catch (e: Exception) {
-                json.decodeFromJsonElement<List<DbUser>>(usersRaw).firstOrNull()
-            }
-            dbUser?.name ?: "Student"
-        } catch (e: Exception) {
-            "Student"
-        }
-    }
+    @kotlinx.serialization.Transient
+    val proposedRoomName: String? = null
     
-    val timeSlot: String? get() {
-        val sched = parseRelation<ScheduleItem>(schedulesRaw)
-        return if (sched != null) "${sched.startTime} - ${sched.endTime}" else null
-    }
-
-    private inline fun <reified T> parseRelation(element: JsonElement?): T? {
-        if (element == null || element.toString() == "null") return null
-        val json = Json { ignoreUnknownKeys = true }
-        return try {
-            json.decodeFromJsonElement<T>(element)
-        } catch (e: Exception) {
-            try {
-                json.decodeFromJsonElement<List<T>>(element).firstOrNull()
-            } catch (e2: Exception) {
-                null
-            }
-        }
-    }
+    @kotlinx.serialization.Transient
+    val studentName: String? = null
+    
+    @kotlinx.serialization.Transient
+    val timeSlot: String? = null
 }
 
 @Serializable

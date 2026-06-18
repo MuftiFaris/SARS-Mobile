@@ -11,8 +11,6 @@ import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-
 import java.util.concurrent.TimeUnit
 
 object SupabaseClient {
@@ -44,10 +42,6 @@ object SupabaseClient {
         get() = client.auth.currentSessionOrNull()?.accessToken
 
     private val okHttpClient: OkHttpClient by lazy {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -58,13 +52,6 @@ object SupabaseClient {
                 }
                 chain.proceed(requestBuilder.build())
             }
-            .addInterceptor(loggingInterceptor)
             .build()
     }
-
-
 }
-
-
-// Extension to access postgrest
-fun SupabaseClient.postgrestAccess() = SupabaseClient.client.postgrest
