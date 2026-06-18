@@ -239,30 +239,17 @@ class DashboardViewModel : ViewModel() {
         realtimeJob?.cancel()
         realtimeJob = viewModelScope.launch {
             try {
-                val channel = SupabaseClient.client.realtime.channel("requests_${user.id}")
-                
-                // IMPORTANT: Setup flow BEFORE subscribe
-                val changeFlow = channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
-                    table = "change_requests"
-                }
-                
-                // Subscribe after flow setup
-                channel.subscribe()
-                
-                // Now listen to changes
-                changeFlow.onEach { action ->
-                    fetchRequests(user)
+                // Simple polling approach - refresh every 5 seconds instead of realtime
+                while (true) {
                     try {
-                        val updated = action.decodeRecord<ValidationRequest>()
-                        if (updated.status == RequestStatus.APPROVED) {
-                            onNotify("Update Pengajuan", "Status pengajuan Anda telah diperbarui.")
-                        }
+                        fetchRequests(user)
                     } catch (e: Exception) {
-                        Log.e("DashboardViewModel", "Decode error", e)
+                        Log.e("DashboardViewModel", "Polling fetch failed", e)
                     }
-                }.launchIn(this)
+                    kotlinx.coroutines.delay(5000) // Poll every 5 seconds
+                }
             } catch (e: Exception) {
-                Log.e("DashboardViewModel", "Realtime setup failed", e)
+                Log.e("DashboardViewModel", "Listening setup failed", e)
             }
         }
     }
