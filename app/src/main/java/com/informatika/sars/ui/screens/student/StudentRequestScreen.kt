@@ -67,6 +67,7 @@ fun StudentRequestScreen(
     val context = LocalContext.current
     val isSubmitting by dashboardViewModel.isSubmitting.collectAsState()
     val submitSuccess by dashboardViewModel.submitSuccess.collectAsState()
+    val submitError by dashboardViewModel.submitError.collectAsState()
 
     var currentStep by remember { mutableIntStateOf(1) }
     var shouldNavigateBack by remember { mutableStateOf(false) }
@@ -85,7 +86,8 @@ fun StudentRequestScreen(
             dashboardViewModel.resetSubmitStatus()
             shouldNavigateBack = true
         } else if (submitSuccess == false) {
-            Toast.makeText(context, "Gagal mengirim pengajuan. Silakan coba lagi.", Toast.LENGTH_LONG).show()
+            val errorMsg = submitError ?: "Gagal mengirim pengajuan. Silakan coba lagi."
+            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
             dashboardViewModel.resetSubmitStatus()
         }
     }

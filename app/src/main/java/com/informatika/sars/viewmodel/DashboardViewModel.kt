@@ -48,6 +48,9 @@ class DashboardViewModel : ViewModel() {
     private val _submitSuccess = MutableStateFlow<Boolean?>(null)
     val submitSuccess: StateFlow<Boolean?> = _submitSuccess
 
+    private val _submitError = MutableStateFlow<String?>(null)
+    val submitError: StateFlow<String?> = _submitError
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -224,6 +227,7 @@ class DashboardViewModel : ViewModel() {
                 Log.e("DashboardViewModel", "Error cause: ${e.cause}")
                 Log.e("DashboardViewModel", "Full stack trace: ${e.stackTraceToString()}")
                 e.printStackTrace()
+                _submitError.value = "Error: ${e.message ?: "Unknown error"}"
                 _submitSuccess.value = false
             } finally {
                 _isSubmitting.value = false
@@ -231,7 +235,10 @@ class DashboardViewModel : ViewModel() {
         }
     }
 
-    fun resetSubmitStatus() { _submitSuccess.value = null }
+    fun resetSubmitStatus() { 
+        _submitSuccess.value = null
+        _submitError.value = null
+    }
 
     fun startListeningToRequests(user: User?, onNotify: (String, String) -> Unit) {
         if (user == null) return
