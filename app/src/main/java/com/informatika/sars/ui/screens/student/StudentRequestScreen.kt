@@ -51,6 +51,7 @@ import com.informatika.sars.ui.theme.Error
 import com.informatika.sars.ui.theme.Success
 import com.informatika.sars.ui.theme.Warning
 import com.informatika.sars.viewmodel.DashboardViewModel
+import com.informatika.sars.utils.getRecommendedEmptySlots
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -558,39 +559,16 @@ fun StudentRequestScreen(
                                     Text("Rekomendasi Jadwal Kosong (Tersedia)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    // Dynamic available slots - exclude current schedule being replaced
+                                    // Dynamic available slots - using smart gap detection
                                     val availableSlots = remember(proposedDay, schedules, rooms, selectedScheduleItem) {
-                                        val list = mutableListOf<Triple<Room, String, String>>()
-                                        val selectedLecturerName = selectedScheduleItem?.lecturerName // Get lecturer of current class
-                                        
-                                        for (room in rooms) {
-                                            for (slot in timeSlots) {
-                                                // Check if this slot is occupied by any OTHER schedule (not the one being replaced)
-                                                val isRoomOccupied = schedules.any { sched ->
-                                                    sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule being replaced
-                                                    sched.roomId == room.id &&
-                                                    sched.day.equals(proposedDay, ignoreCase = true) &&
-                                                    sched.startTime == slot.first
-                                                }
-                                                
-                                                // Check if lecturer is already teaching another class in this time slot
-                                                val isLecturerBusy = if (selectedLecturerName != null && selectedLecturerName != "No Lecturer") {
-                                                    schedules.any { sched ->
-                                                        sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule
-                                                        sched.day.equals(proposedDay, ignoreCase = true) &&
-                                                        sched.startTime == slot.first &&
-                                                        sched.lecturerName == selectedLecturerName
-                                                    }
-                                                } else {
-                                                    false
-                                                }
-                                                
-                                                if (!isRoomOccupied && !isLecturerBusy) {
-                                                    list.add(Triple(room, slot.first, slot.second))
-                                                }
-                                            }
-                                        }
-                                        list.take(8)
+                                        getRecommendedEmptySlots(
+                                            day = proposedDay,
+                                            schedules = schedules,
+                                            rooms = rooms,
+                                            excludeScheduleId = selectedScheduleItem?.id,
+                                            limit = 8,
+                                            preferredDuration = 1
+                                        )
                                     }
 
                                     if (availableSlots.isEmpty()) {
