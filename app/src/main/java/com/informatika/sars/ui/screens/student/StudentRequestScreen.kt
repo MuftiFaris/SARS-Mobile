@@ -561,7 +561,7 @@ fun StudentRequestScreen(
 
                                     // Dynamic available slots - using smart gap detection
                                     val availableSlots = remember(proposedDay, schedules, rooms, selectedScheduleItem) {
-                                        getRecommendedEmptySlots(
+                                        val slots = getRecommendedEmptySlots(
                                             day = proposedDay,
                                             schedules = schedules,
                                             rooms = rooms,
@@ -569,6 +569,23 @@ fun StudentRequestScreen(
                                             limit = 8,
                                             preferredDuration = 1
                                         )
+                                        
+                                        // Debug: Log schedule data
+                                        android.util.Log.d("StudentRequestScreen", "ProposedDay: $proposedDay")
+                                        android.util.Log.d("StudentRequestScreen", "Total schedules: ${schedules.size}")
+                                        android.util.Log.d("StudentRequestScreen", "Rooms: ${rooms.size}")
+                                        
+                                        schedules.filter { it.day == proposedDay.uppercase() }.forEach { sched ->
+                                            android.util.Log.d("StudentRequestScreen", 
+                                                "Schedule on $proposedDay: Room=${sched.roomId} Day=${sched.day} Start=${sched.startTime} End=${sched.endTime} SessionStart=${sched.sessionStart} Duration=${sched.sessionDuration}")
+                                        }
+                                        
+                                        android.util.Log.d("StudentRequestScreen", "Available slots found: ${slots.size}")
+                                        slots.forEach { slot ->
+                                            android.util.Log.d("StudentRequestScreen", "Slot: ${slot.first.name} ${slot.second}-${slot.third}")
+                                        }
+                                        
+                                        slots
                                     }
 
                                     if (availableSlots.isEmpty()) {

@@ -90,8 +90,19 @@ fun findAvailableSlots(
             it.isActive
         }
         .forEach { schedule ->
-            val startSession = schedule.sessionStart ?: SessionTimeMapping.timeToSession(schedule.startTime ?: "07:30")
-            val duration = schedule.sessionDuration ?: 1
+            // Try to get session from sessionStart, fallback to calculating from times
+            var startSession = schedule.sessionStart
+            if (startSession == null || startSession <= 0) {
+                startSession = SessionTimeMapping.timeToSession(schedule.startTime ?: "07:30")
+            }
+            
+            var duration = schedule.sessionDuration
+            if (duration == null || duration <= 0) {
+                // Calculate duration from start/end times
+                val startSes = SessionTimeMapping.timeToSession(schedule.startTime ?: "07:30")
+                val endSes = SessionTimeMapping.timeToSession(schedule.endTime ?: "10:00")
+                duration = if (startSes > 0 && endSes > 0) maxOf(1, endSes - startSes + 1) else 1
+            }
             
             if (startSession > 0) {
                 for (s in startSession until (startSession + duration)) {
@@ -100,31 +111,23 @@ fun findAvailableSlots(
             }
         }
     
-    // Find consecutive free slots
-    var freeStart = -1
+    // Find consecutive free slots (only return single-session recommendations for simplicity)
     for (session in 1..11) {
         if (session !in occupiedSessions) {
-            if (freeStart == -1) freeStart = session
-        } else {
-            if (freeStart != -1) {
-                val duration = session - freeStart
-                if (duration >= preferredDuration) {
-                    val startTime = SessionTimeMapping.sessionToStartTime(freeStart)
-                    val endTime = SessionTimeMapping.sessionToEndTime(freeStart + preferredDuration - 1, preferredDuration)
-                    availableSlots.add(Triple(room, startTime, endTime))
+            // Check if we have enough consecutive free sessions
+            var isAvailable = true
+            for (s in session until minOf(session + preferredDuration, 12)) {
+                if (s in occupiedSessions) {
+                    isAvailable = false
+                    break
                 }
-                freeStart = -1
             }
-        }
-    }
-    
-    // Handle end-of-day case
-    if (freeStart != -1) {
-        val duration = 12 - freeStart
-        if (duration >= preferredDuration) {
-            val startTime = SessionTimeMapping.sessionToStartTime(freeStart)
-            val endTime = SessionTimeMapping.sessionToEndTime(freeStart + preferredDuration - 1, preferredDuration)
-            availableSlots.add(Triple(room, startTime, endTime))
+            
+            if (isAvailable) {
+                val startTime = SessionTimeMapping.sessionToStartTime(session)
+                val endTime = SessionTimeMapping.sessionToEndTime(session + preferredDuration - 1, preferredDuration)
+                availableSlots.add(Triple(room, startTime, endTime))
+            }
         }
     }
     
