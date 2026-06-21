@@ -51,6 +51,7 @@ import com.informatika.sars.ui.theme.Error
 import com.informatika.sars.ui.theme.Success
 import com.informatika.sars.ui.theme.Warning
 import com.informatika.sars.viewmodel.DashboardViewModel
+import com.informatika.sars.utils.getRecommendedEmptySlots
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -141,6 +142,12 @@ fun StudentRequestScreen(
     )
     var proposedTimeSlotStr by remember { mutableStateOf("") }
     var selectedRequestForDetail by remember { mutableStateOf<ValidationRequest?>(null) }
+    
+    // Step 5 session picker states
+    var selectedStartSession by remember { mutableIntStateOf(0) }
+    var selectedEndSession by remember { mutableIntStateOf(0) }
+    var conflictResult by remember { mutableStateOf<String?>(null) }
+    var hasConflict by remember { mutableStateOf(false) }
 
     // Handle submit results - REMOVED old LaunchedEffect here
 
@@ -517,7 +524,8 @@ fun StudentRequestScreen(
                                 Text("Cari Jadwal Pengganti untuk Pertemuan ${targetDate.ifEmpty { "Pilih di Step 3" }}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
-                                Text("Pilih Hari Pengganti *", style = MaterialTheme.typography.labelMedium)
+                                // Step 1: Pilih Hari Pengganti
+                                Text("1. Pilih Hari Pengganti *", style = MaterialTheme.typography.labelMedium)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Box(modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(
@@ -542,11 +550,14 @@ fun StudentRequestScreen(
                                                 onClick = {
                                                     proposedDay = d
                                                     dayExpanded = false
-                                                    // Clear manual options since we changed the day
+                                                    selectedStartSession = 0
+                                                    selectedEndSession = 0
                                                     proposedStartTime = ""
                                                     proposedEndTime = ""
                                                     proposedTimeSlotStr = ""
                                                     selectedRoom = null
+                                                    conflictResult = null
+                                                    hasConflict = false
                                                 }
                                             )
                                         }
@@ -555,118 +566,116 @@ fun StudentRequestScreen(
 
                                 if (proposedDay.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Rekomendasi Jadwal Kosong (Tersedia)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    
+                                    // Step 2: Pilih Range Sesi (Session Start & End)
+                                    Text("2. Pilih Range Sesi Waktu *", style = MaterialTheme.typography.labelMedium)
                                     Spacer(modifier = Modifier.height(8.dp))
-
-                                    // Dynamic available slots - exclude current schedule being replaced
-                                    val availableSlots = remember(proposedDay, schedules, rooms, selectedScheduleItem) {
-                                        val list = mutableListOf<Triple<Room, String, String>>()
-                                        val selectedLecturerName = selectedScheduleItem?.lecturerName // Get lecturer of current class
-                                        
-                                        for (room in rooms) {
-                                            for (slot in timeSlots) {
-                                                // Check if this slot is occupied by any OTHER schedule (not the one being replaced)
-                                                val isRoomOccupied = schedules.any { sched ->
-                                                    sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule being replaced
-                                                    sched.roomId == room.id &&
-                                                    sched.day.equals(proposedDay, ignoreCase = true) &&
-                                                    sched.startTime == slot.first
-                                                }
-                                                
-                                                // Check if lecturer is already teaching another class in this time slot
-                                                val isLecturerBusy = if (selectedLecturerName != null && selectedLecturerName != "No Lecturer") {
-                                                    schedules.any { sched ->
-                                                        sched.id != selectedScheduleItem?.id && // EXCLUDE current schedule
-                                                        sched.day.equals(proposedDay, ignoreCase = true) &&
-                                                        sched.startTime == slot.first &&
-                                                        sched.lecturerName == selectedLecturerName
+                                    
+                                    Text("Sesi Mulai", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        (1..11).forEach { session ->
+                                            val startTime = getSessionStartTime(session)
+                                            Button(
+                                                onClick = {
+                                                    selectedStartSession = session
+                                                    // Reset end session jika lebih kecil dari start
+                                                    if (selectedEndSession < session) {
+                                                        selectedEndSession = session
                                                     }
-                                                } else {
-                                                    false
-                                                }
-                                                
-                                                if (!isRoomOccupied && !isLecturerBusy) {
-                                                    list.add(Triple(room, slot.first, slot.second))
+                                                    conflictResult = null
+                                                    hasConflict = false
+                                                },
+                                                modifier = Modifier
+                                                    .width(70.dp)
+                                                    .height(50.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (selectedStartSession == session) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                    contentColor = if (selectedStartSession == session) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                                ),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.Center
+                                                ) {
+                                                    Text("$session", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                    Text(startTime, fontSize = 8.sp)
                                                 }
                                             }
                                         }
-                                        list.take(8)
                                     }
-
-                                    if (availableSlots.isEmpty()) {
-                                        Text("Tidak ada kelas/slot yang kosong di hari $proposedDay", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                                    } else {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            availableSlots.forEach { slot ->
-                                                val slotRoom = slot.first
-                                                val startT = slot.second
-                                                val endT = slot.third
-                                                val isSelected = selectedRoom?.id == slotRoom.id && proposedStartTime == startT
-
-                                                Surface(
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    if (selectedStartSession > 0) {
+                                        Text("Sesi Selesai", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            (selectedStartSession..11).forEach { session ->
+                                                val endTime = getSessionEndTime(session)
+                                                Button(
                                                     onClick = {
-                                                        selectedRoom = slotRoom
-                                                        proposedStartTime = startT
-                                                        proposedEndTime = endT
-                                                        proposedTimeSlotStr = "$startT - $endT"
+                                                        selectedEndSession = session
+                                                        // Update proposedStartTime & proposedEndTime dari session
+                                                        proposedStartTime = getSessionStartTime(selectedStartSession)
+                                                        proposedEndTime = getSessionEndTime(selectedEndSession)
+                                                        proposedTimeSlotStr = "Sesi $selectedStartSession - $selectedEndSession (${proposedStartTime} - ${proposedEndTime})"
+                                                        conflictResult = null
+                                                        hasConflict = false
                                                     },
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                                    border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-                                                    modifier = Modifier.fillMaxWidth()
+                                                    modifier = Modifier
+                                                        .width(70.dp)
+                                                        .height(50.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = if (selectedEndSession == session) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                        contentColor = if (selectedEndSession == session) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                                    ),
+                                                    shape = RoundedCornerShape(6.dp)
                                                 ) {
-                                                    Row(
-                                                        modifier = Modifier.padding(12.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center
                                                     ) {
-                                                        Column {
-                                                            Text("${slotRoom.name} (${slotRoom.code})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                            Text("Sesi: $startT - $endT", style = MaterialTheme.typography.bodySmall)
-                                                        }
-                                                        if (isSelected) {
-                                                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                                        }
+                                                        Text("$session", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                        Text(endTime, fontSize = 8.sp)
                                                     }
                                                 }
+                                            }
+                                        }
+                                        
+                                        if (selectedEndSession > 0) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Sesi: $selectedStartSession - $selectedEndSession\nWaktu: $proposedStartTime - $proposedEndTime",
+                                                    modifier = Modifier.padding(12.dp),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    fontWeight = FontWeight.Bold
+                                                )
                                             }
                                         }
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Pilihan Alternatif / Manual", style = MaterialTheme.typography.labelMedium)
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    // Manual slot picker
-                                    Text("Pilih Sesi Waktu", style = MaterialTheme.typography.bodySmall)
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        timeSlots.forEach { slot ->
-                                            val slotStr = "${slot.first} - ${slot.second}"
-                                            FilterChip(
-                                                selected = proposedTimeSlotStr == slotStr,
-                                                onClick = {
-                                                    if (proposedTimeSlotStr == slotStr) {
-                                                        proposedTimeSlotStr = ""
-                                                        proposedStartTime = ""
-                                                        proposedEndTime = ""
-                                                    } else {
-                                                        proposedTimeSlotStr = slotStr
-                                                        proposedStartTime = slot.first
-                                                        proposedEndTime = slot.second
-                                                    }
-                                                },
-                                                label = { Text(slotStr, fontSize = 11.sp) }
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Text("Pilih Ruangan", style = MaterialTheme.typography.bodySmall)
+                                    
+                                    // Step 3: Pilih Ruangan
+                                    Text("3. Pilih Ruangan *", style = MaterialTheme.typography.labelMedium)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(modifier = Modifier.fillMaxWidth()) {
                                         OutlinedButton(
@@ -675,7 +684,7 @@ fun StudentRequestScreen(
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
                                             Text(
-                                                selectedRoom?.name ?: "Pilih Ruangan Baru",
+                                                selectedRoom?.let { "${it.name} (${it.code})" } ?: "Pilih Ruangan Baru",
                                                 textAlign = TextAlign.Start,
                                                 modifier = Modifier.fillMaxWidth()
                                             )
@@ -691,7 +700,59 @@ fun StudentRequestScreen(
                                                     onClick = {
                                                         selectedRoom = room
                                                         roomExpanded = false
+                                                        conflictResult = null
+                                                        hasConflict = false
                                                     }
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    
+                                    // Step 4: Validate dengan button Check Jadwal
+                                    if (proposedDay.isNotEmpty() && selectedStartSession > 0 && selectedEndSession > 0 && selectedRoom != null) {
+                                        Text("4. Validasi Jadwal", style = MaterialTheme.typography.labelMedium)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        
+                                        Button(
+                                            onClick = {
+                                                // Cek konflik jadwal
+                                                val conflicts = checkScheduleConflict(
+                                                    proposedDay = proposedDay,
+                                                    proposedStartTime = proposedStartTime,
+                                                    proposedEndTime = proposedEndTime,
+                                                    proposedRoomId = selectedRoom!!.id,
+                                                    selectedScheduleItem = selectedScheduleItem,
+                                                    schedules = schedules
+                                                )
+                                                
+                                                hasConflict = conflicts.isNotEmpty()
+                                                conflictResult = if (conflicts.isEmpty()) {
+                                                    "✓ Jadwal tersedia! Ruangan ${selectedRoom?.name} tidak ada tabrakan pada $proposedDay sesi $selectedStartSession-$selectedEndSession"
+                                                } else {
+                                                    "✗ Jadwal tidak tersedia!\n${conflicts.joinToString("\n") { "• $it" }}"
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Text("🔍 Check Jadwal", fontWeight = FontWeight.Bold)
+                                        }
+                                        
+                                        // Hasil validasi
+                                        if (conflictResult != null) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Surface(
+                                                color = if (hasConflict) MaterialTheme.colorScheme.errorContainer else Color(0xFFE8F5E9),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    conflictResult!!,
+                                                    modifier = Modifier.padding(12.dp),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = if (hasConflict) MaterialTheme.colorScheme.error else Color(0xFF2E7D32)
                                                 )
                                             }
                                         }
@@ -777,8 +838,17 @@ fun StudentRequestScreen(
                                                 }
                                             }
                                             5 -> {
-                                                if (proposedDay.isEmpty() || proposedStartTime.isEmpty() || proposedEndTime.isEmpty() || selectedRoom == null) {
+                                                if (proposedDay.isEmpty() || selectedStartSession == 0 || selectedEndSession == 0 || selectedRoom == null) {
                                                     Toast.makeText(context, "Silakan pilih usulan jadwal pengganti (hari, sesi, dan ruangan)", Toast.LENGTH_SHORT).show()
+                                                    return@PrimaryButton
+                                                }
+                                                // ENFORCE: Must check conflict and it must be valid (no conflict)
+                                                if (conflictResult == null) {
+                                                    Toast.makeText(context, "Silakan klik 'Check Jadwal' terlebih dahulu untuk memvalidasi", Toast.LENGTH_SHORT).show()
+                                                    return@PrimaryButton
+                                                }
+                                                if (hasConflict) {
+                                                    Toast.makeText(context, "Jadwal memiliki tabrakan! Pilih jadwal lain atau ubah ruangan", Toast.LENGTH_SHORT).show()
                                                     return@PrimaryButton
                                                 }
                                             }
@@ -1079,4 +1149,121 @@ fun getNextDatesForDayOfWeek(dayOfWeekStr: String, count: Int): List<Date> {
         cal.add(Calendar.DAY_OF_YEAR, 1)
     }
     return list
+}
+
+
+
+/**
+ * Get start time dari session number (1-11)
+ */
+fun getSessionStartTime(session: Int): String = when (session) {
+    1 -> "07:30"
+    2 -> "08:20"
+    3 -> "09:10"
+    4 -> "10:15"
+    5 -> "11:05"
+    6 -> "11:55"
+    7 -> "13:15"
+    8 -> "14:05"
+    9 -> "14:55"
+    10 -> "16:00"
+    11 -> "16:50"
+    else -> "00:00"
+}
+
+/**
+ * Get end time dari session number (1-11)
+ */
+fun getSessionEndTime(session: Int): String = when (session) {
+    1 -> "08:20"
+    2 -> "09:10"
+    3 -> "10:00"
+    4 -> "11:05"
+    5 -> "11:55"
+    6 -> "12:45"
+    7 -> "14:05"
+    8 -> "14:55"
+    9 -> "15:45"
+    10 -> "16:50"
+    11 -> "17:40"
+    else -> "18:30"
+}
+
+/**
+ * Fungsi untuk cek tabrakan jadwal
+ * 1. Cek apakah ruangan sudah ada kelas lain pada hari & waktu yang dipilih
+ * 2. Cek apakah dosen sudah ada kelas lain pada hari & waktu yang dipilih
+ * 
+ * @return List<String> = list pesan error jika ada tabrakan, atau empty jika tidak ada tabrakan
+ */
+fun checkScheduleConflict(
+    proposedDay: String,
+    proposedStartTime: String,
+    proposedEndTime: String,
+    proposedRoomId: Long,
+    selectedScheduleItem: ScheduleItem?,
+    schedules: List<ScheduleItem>
+): List<String> {
+    val conflicts = mutableListOf<String>()
+    
+    // Convert time string to minutes untuk comparison
+    val startMinutes = timeToMinutes(proposedStartTime)
+    val endMinutes = timeToMinutes(proposedEndTime)
+    
+    if (startMinutes == -1 || endMinutes == -1) {
+        conflicts.add("Format waktu tidak valid")
+        return conflicts
+    }
+    
+    if (selectedScheduleItem == null) {
+        conflicts.add("Schedule item tidak valid")
+        return conflicts
+    }
+    
+    // Cek semua schedules untuk tabrakan
+    for (schedule in schedules) {
+        // Skip jadwal yang sedang diubah
+        if (schedule.id == selectedScheduleItem.id) continue
+        
+        // Skip jika bukan hari yang sama
+        if (schedule.day.uppercase() != proposedDay.uppercase()) continue
+        
+        // Skip inactive schedules
+        if (!schedule.isActive) continue
+        
+        // Convert jadwal existing ke minutes
+        val existingStartMinutes = timeToMinutes(schedule.startTime ?: "")
+        val existingEndMinutes = timeToMinutes(schedule.endTime ?: "")
+        
+        if (existingStartMinutes == -1 || existingEndMinutes == -1) continue
+        
+        // Cek tabrakan waktu: ada overlap?
+        val hasTimeConflict = startMinutes < existingEndMinutes && endMinutes > existingStartMinutes
+        
+        if (hasTimeConflict) {
+            // Cek tabrakan ruangan - EXACT match
+            if (schedule.roomId == proposedRoomId) {
+                val roomName = schedule.room?.name ?: "Ruangan ${schedule.roomId}"
+                val existingCourse = schedule.course?.name ?: "Kelas"
+                conflicts.add("❌ Ruangan $roomName sudah digunakan untuk $existingCourse (${schedule.startTime} - ${schedule.endTime})")
+            }
+        }
+    }
+    
+    return conflicts
+}
+
+/**
+ * Helper function untuk convert time string (HH:mm) ke minutes
+ */
+fun timeToMinutes(time: String): Int {
+    return try {
+        val parts = time.split(":")
+        if (parts.size != 2) return -1
+        val hours = parts[0].toInt()
+        val minutes = parts[1].toInt()
+        hours * 60 + minutes
+    } catch (e: Exception) {
+        -1
+    }
 }
