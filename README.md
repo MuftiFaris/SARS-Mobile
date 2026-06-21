@@ -12,9 +12,10 @@ Sistem Manajemen Pengajuan Jadwal (SARS) - Schedule Adjustment Request System un
 - **Pengajuan Jadwal (Jadwal Request)**
   - Form wizard 6-step untuk pengajuan perubahan jadwal
   - Support tipe perubahan: Sementara (1x pertemuan) & Permanen (berlaku terus)
-  - Validasi jadwal kosong secara realtime
-  - Rekomendasi slot jadwal alternatif
+  - **Custom session range picker**: Pilih sesi bebas (1-11)
+  - **Conflict validation**: Real-time conflict check ruangan + waktu
   - History pengajuan dengan detail modal
+  - Request status tracking: PENDING → FORWARDED → APPROVED/REJECTED
 
 - **Dashboard Role-Based**
   - Student Dashboard: Lihat jadwal & buat pengajuan
@@ -119,9 +120,15 @@ app/src/main/java/com/informatika/sars/
 
 ### Step 5: Cari Jadwal Pengganti
 - Pilih hari pengganti (Senin-Jumat)
-- Rekomendasi slot kosong otomatis
-- Manual pick sesi waktu + ruangan
-- Conflict detection built-in
+- **CUSTOM SESI PICKER**: Pilih sesi mulai & selesai (sesi 1-11)
+  - Sesi 1 = 07:30-08:20, Sesi 2 = 08:20-09:10, dst
+  - Flexible: sesi 1-3, sesi 2-5, sesi 1-1 (single), etc
+- Pilih ruangan alternatif dari dropdown
+- **CONFLICT CHECKING**: Klik "Check Jadwal" untuk validasi
+  - ✅ Cek apakah ruangan tersedia (no double-booking)
+  - ✅ Cek apakah waktu sudah occupied
+  - ❌ Show error jika ada tabrakan
+- Enforcement: HARUS valid conflict check sebelum Next (no bypass)
 
 ### Step 6: Review & Konfirmasi
 - Review semua data pengajuan
