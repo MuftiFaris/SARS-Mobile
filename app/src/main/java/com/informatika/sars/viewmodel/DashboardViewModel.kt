@@ -30,8 +30,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
 class DashboardViewModel : ViewModel() {
+    private val _notificationEvent = MutableStateFlow<Pair<String, String>?>(null)
+    val notificationEvent: StateFlow<Pair<String, String>?> = _notificationEvent
+    
     private var realtimeJob: Job? = null
     private var currentUser: User? = null
+    private var previousRequestStates: Map<Long, String> = mutableMapOf() // Track previous statuses
 
     private val _schedules = MutableStateFlow<List<ScheduleItem>>(emptyList())
     val schedules: StateFlow<List<ScheduleItem>> = _schedules
@@ -239,22 +243,56 @@ class DashboardViewModel : ViewModel() {
     }
 
     fun startListeningToRequests(user: User?, onNotify: (String, String) -> Unit) {
-        if (user == null) return
+        if (user == null) {
+            Log.w("DashboardViewModel", "startListeningToRequests called but user is null")
+            return
+        }
+        Log.i("DashboardViewModel", "✅ startListeningToRequests STARTED for user: ${user.name} (ID: ${user.id})")
         this.currentUser = user
         realtimeJob?.cancel()
         realtimeJob = viewModelScope.launch {
             try {
-                // Simple polling approach - refresh every 5 seconds instead of realtime
+                Log.i("DashboardViewModel", "🚀 Polling job launched - starting infinite while loop")
+                var pollCount = 0
                 while (true) {
                     try {
-                        fetchRequests(user)
-                    } catch (e: Exception) {
-                        Log.e("DashboardViewModel", "Polling fetch failed", e)
+                        pollCount++
+                        Log.i("DashboardViewModel", "📊 POLL #$pollCount START - fetching requests for user ${currentUser?.id}...")
+                        fetchRequests(currentUser)
+                        Log.i("DashboardViewModel", "📊 POLL #$pollCount FETCH DONE")
+                        
+                        // Check for status changes
+                        val currentRequests = _requests.value
+                        Log.i("DashboardViewModel", "📊 POLL #$pollCount - found ${currentRequests.size} requests")
+                        for (request in currentRequests) {
+                            val requestId = request.id ?: continue
+                            val previousStatus = previousRequestStates[requestId]
+                            val currentStatus = request.status
+                            
+                            if (previousStatus != null && previousStatus != currentStatus) {
+                                val message = when (currentStatus) {
+                                    "APPROVED" -> "Pengajuan Anda telah disetujui!"
+                                    "REJECTED" -> "Pengajuan Anda ditolak."
+                                    "FORWARDED" -> "Pengajuan Anda sedang diproses admin."
+                                    else -> "Status pengajuan berubah menjadi $currentStatus"
+                                }
+                                _notificationEvent.value = "SARS Notification" to message
+                                onNotify("SARS Notification", message)
+                                Log.i("DashboardViewModel", "🔔 NOTIFICATION: Request $requestId: $previousStatus -> $currentStatus")
+                            }
+                            
+                            previousRequestStates = previousRequestStates.toMutableMap().apply {
+                                this[requestId] = currentStatus ?: "UNKNOWN"
+                            }
+                        }
+                        Log.i("DashboardViewModel", "📊 POLL #$pollCount END - waiting 5 seconds...")
+                    } catch (pollEx: Exception) {
+                        Log.e("DashboardViewModel", "❌ POLL #$pollCount ERROR", pollEx)
                     }
-                    kotlinx.coroutines.delay(5000) // Poll every 5 seconds
+                    kotlinx.coroutines.delay(5000)
                 }
             } catch (e: Exception) {
-                Log.e("DashboardViewModel", "Listening setup failed", e)
+                Log.e("DashboardViewModel", "❌ POLLING STOPPED - outer exception", e)
             }
         }
     }

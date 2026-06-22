@@ -164,4 +164,21 @@ class AuthViewModel : ViewModel() {
             _currentUser.value = current.copy(avatarUrl = url)
         }
     }
+
+    fun saveFcmToken(userId: Long, fcmToken: String) {
+        viewModelScope.launch {
+            try {
+                SupabaseClient.client.postgrest["users"].update({
+                    set("fcm_token", fcmToken)
+                }) {
+                    filter {
+                        eq("id", userId)
+                    }
+                }
+                Log.d("AuthViewModel", "FCM token saved successfully")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Failed to save FCM token", e)
+            }
+        }
+    }
 }

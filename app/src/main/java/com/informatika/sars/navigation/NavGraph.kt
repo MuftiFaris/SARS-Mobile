@@ -1,14 +1,9 @@
 package com.informatika.sars.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,35 +31,26 @@ fun NavGraph(
     val currentUser by authViewModel.currentUser.collectAsState()
     val isInitializing by authViewModel.isInitializing.collectAsState()
     
-    // Logic Flaw Fix: Pantau perubahan status login secara global
-    LaunchedEffect(currentUser, isInitializing) {
-        if (!isInitializing && currentUser == null) {
-            navController.navigate(Screen.Login.route) {
-                popUpTo(0) { inclusive = true }
+    // Auto navigate after initialization
+    LaunchedEffect(isInitializing) {
+        if (!isInitializing) {
+            val dest = if (currentUser != null) {
+                when(currentUser?.role) {
+                    UserRole.LECTURER -> Screen.LecturerDashboard.route
+                    UserRole.ASLAB -> Screen.AslabDashboard.route
+                    else -> Screen.StudentDashboard.route
+                }
+            } else Screen.Login.route
+            
+            navController.navigate(dest) {
+                popUpTo(Screen.Login.route) { inclusive = true }
             }
         }
     }
 
-    // 1. Tampilkan Loading Screen saat aplikasi pertama kali dibuka (menghindari flicker)
-    if (isInitializing) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    // 2. Tentukan start destination
-    val startDest = if (currentUser != null) {
-        when(currentUser?.role) {
-            UserRole.LECTURER -> Screen.LecturerDashboard.route
-            UserRole.ASLAB -> Screen.AslabDashboard.route
-            else -> Screen.StudentDashboard.route
-        }
-    } else Screen.Login.route
-
     NavHost(
         navController = navController,
-        startDestination = startDest
+        startDestination = Screen.Login.route
     ) {
         composable(Screen.Login.route) {
             LoginScreen(

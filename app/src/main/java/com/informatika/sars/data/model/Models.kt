@@ -241,24 +241,14 @@ data class ValidationRequest(
     @SerialName("created_at")
     val timestamp: String? = null,
     @SerialName("updated_at")
-    val updatedAt: String? = null
-) {
-    // Helper computed properties (not serialized)
-    @kotlinx.serialization.Transient
-    val subject: String? = null
-    
-    @kotlinx.serialization.Transient
-    val room: String? = null
-    
-    @kotlinx.serialization.Transient
-    val proposedRoomName: String? = null
-    
-    @kotlinx.serialization.Transient
-    val studentName: String? = null
-    
-    @kotlinx.serialization.Transient
+    val updatedAt: String? = null,
+    // Computed properties from relationships
+    val subject: String? = null,
+    val room: String? = null,
+    val proposedRoomName: String? = null,
+    val studentName: String? = null,
     val timeSlot: String? = null
-}
+)
 
 @Serializable
 enum class RequestStatus {

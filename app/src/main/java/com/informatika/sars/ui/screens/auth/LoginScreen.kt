@@ -53,37 +53,6 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Logo and App Name
-            Surface(
-                modifier = Modifier.size(80.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = SurfaceWhite.copy(alpha = 0.2f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    modifier = Modifier.padding(20.dp),
-                    tint = SurfaceWhite
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "SARS Mahasiswa",
-                style = MaterialTheme.typography.headlineMedium,
-                color = SurfaceWhite,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Text(
-                text = "Sistem Akademik & Ruang Studi",
-                style = MaterialTheme.typography.bodyMedium,
-                color = SurfaceWhite.copy(alpha = 0.7f)
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(32.dp),

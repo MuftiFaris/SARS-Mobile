@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.messaging.FirebaseMessaging
 import com.informatika.sars.navigation.NavGraph
 import com.informatika.sars.service.NotificationService
 import com.informatika.sars.ui.theme.SARSTheme
@@ -27,6 +29,10 @@ import com.informatika.sars.viewmodel.ChatViewModel
 import com.informatika.sars.viewmodel.DashboardViewModel
 import com.informatika.sars.viewmodel.NotificationViewModel
 import com.informatika.sars.viewmodel.ThemeViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
@@ -61,9 +67,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Initialize FCM
+        initializeFCM()
+
         enableEdgeToEdge()
         setContent {
             val themeMode by themeViewModel.themeMode.collectAsState()
+            val currentUser by authViewModel.currentUser.collectAsState()
+            
+            // Save FCM token when user logs in
+            if (currentUser != null) {
+                saveFcmTokenToDatabase(currentUser!!.id)
+            }
+            
             SARSTheme(themeMode = themeMode) {
                 val navController = rememberNavController()
                 Surface(
@@ -82,4 +98,28 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /**
+     * Initialize Firebase Cloud Messaging
+     */
+    private fun initializeFCM() {
+        FirebaseMessaging.getInstance().subscribeToTopic("schedule_notifications")
+        Log.d("MainActivity", "Subscribed to FCM topic: schedule_notifications")
+    }
+
+    /**
+     * Save FCM token to Supabase database
+     */
+    private fun saveFcmTokenToDatabase(userId: Long) {
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                val token = FirebaseMessaging.getInstance().token.await()
+                Log.d("MainActivity", "FCM Token: $token")
+                authViewModel.saveFcmToken(userId, token)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to get FCM token", e)
+            }
+        }
+    }
 }
+

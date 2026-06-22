@@ -1,6 +1,7 @@
 package com.informatika.sars.navigation
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
     object Login : Screen("login")
     object StudentDashboard : Screen("student_dashboard")
     object LecturerDashboard : Screen("lecturer_dashboard")

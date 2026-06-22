@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import com.informatika.sars.service.NotificationService
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -97,14 +98,27 @@ fun StudentDashboard(
 
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    
+    // Observe notification events and show system notifications
+    val notificationEvent by dashboardViewModel.notificationEvent.collectAsState()
+    LaunchedEffect(notificationEvent) {
+        notificationEvent?.let { (title, message) ->
+            val notificationService = NotificationService(context)
+            notificationService.showNotification(title, message)
+        }
+    }
 
     // Fetch data and start realtime listener on start
     LaunchedEffect(currentUser) {
-        currentUser?.let { user ->
-            dashboardViewModel.fetchData(user)
-            dashboardViewModel.startListeningToRequests(user) { title, message ->
+        if (currentUser != null) {
+            android.util.Log.i("StudentDashboard", "✅ LaunchedEffect triggered with user: ${currentUser?.name}")
+            dashboardViewModel.fetchData(currentUser!!)
+            dashboardViewModel.startListeningToRequests(currentUser!!) { title, message ->
+                android.util.Log.i("StudentDashboard", "🔔 Callback received: $title - $message")
                 notificationViewModel.triggerNotification(title, message)
             }
+        } else {
+            android.util.Log.w("StudentDashboard", "⚠️ LaunchedEffect triggered but currentUser is NULL")
         }
     }
 
@@ -1045,6 +1059,8 @@ fun CompactRequestStatusItem(request: ValidationRequest, onClick: () -> Unit = {
 fun RequestItem(request: ValidationRequest, onClick: () -> Unit = {}) {
     val (statusText, statusColor) = when (request.status) {
         "PENDING" -> "Reviewing" to Warning
+        "PENDING_ASLAB" -> "Sedang Diproses" to Warning
+        "PENDING_ADMIN" -> "Sedang Diproses" to Warning
         "FORWARDED" -> "Forwarded" to PrimaryBlue
         "APPROVED" -> "Published" to Success
         "REJECTED" -> "Rejected" to Color.Red
@@ -1060,11 +1076,11 @@ fun RequestItem(request: ValidationRequest, onClick: () -> Unit = {}) {
     ) {
         Column {
             Text(
-                text = request.subject ?: "-",
+                text = request.requestCode ?: "-",
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text("Request Info", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Text(request.subject ?: "Request Info", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
         }
         Surface(
             color = statusColor.copy(alpha = 0.1f),
@@ -1728,7 +1744,7 @@ fun RequestContent(
     onRequestNew: () -> Unit,
     onRequestClick: (ValidationRequest) -> Unit = {}
 ) {
-    val processingRequests = requests.filter { it.status == "PENDING" || it.status == "FORWARDED" }
+    val processingRequests = requests.filter { it.status == "PENDING" || it.status == "PENDING_ASLAB" || it.status == "PENDING_ADMIN" || it.status == "FORWARDED" }
     val completedRequests = requests.filter { it.status == "APPROVED" || it.status == "REJECTED" }
 
     Box(modifier = Modifier.fillMaxSize()) {
