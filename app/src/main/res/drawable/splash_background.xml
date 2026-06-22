@@ -1,7 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <gradient
-        android:angle="90"
-        android:startColor="#0D1B4F"
-        android:endColor="#1A237E" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="90"
+                android:startColor="#0D1B4F"
+                android:endColor="#1A237E" />
+        </shape>
+    </item>
+    
+    <!-- Logo centered - bigger size -->
+    <item
+        android:left="80dp"
+        android:right="80dp"
+        android:top="300dp"
+        android:bottom="300dp">
+        <bitmap
+            android:src="@drawable/sars_logo"
+            android:gravity="center" />
+    </item>
+</layer-list>
