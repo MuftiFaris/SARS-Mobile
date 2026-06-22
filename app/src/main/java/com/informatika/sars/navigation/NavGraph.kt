@@ -4,12 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.informatika.sars.ui.screens.auth.LoginScreen
+import com.informatika.sars.ui.screens.SplashScreen
 import com.informatika.sars.ui.screens.student.StudentDashboard
 import com.informatika.sars.ui.screens.lecturer.LecturerDashboard
 import com.informatika.sars.data.model.UserRole
@@ -30,28 +34,46 @@ fun NavGraph(
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     val isInitializing by authViewModel.isInitializing.collectAsState()
+    var splashFinished by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     
-    // Auto navigate after initialization
-    LaunchedEffect(isInitializing) {
-        if (!isInitializing) {
-            val dest = if (currentUser != null) {
-                when(currentUser?.role) {
-                    UserRole.LECTURER -> Screen.LecturerDashboard.route
-                    UserRole.ASLAB -> Screen.AslabDashboard.route
-                    else -> Screen.StudentDashboard.route
+    // Auto navigate after initialization and handle logout
+    LaunchedEffect(isInitializing, currentUser, splashFinished) {
+        if (!isInitializing && splashFinished) {
+            if (currentUser == null) {
+                // Redirect to login if user is null (either initially or after logout)
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                if (currentRoute != Screen.Login.route) {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
-            } else Screen.Login.route
-            
-            navController.navigate(dest) {
-                popUpTo(Screen.Login.route) { inclusive = true }
+            } else {
+                // If we are currently on the Login or Splash screen, move to dashboard
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                if (currentRoute == Screen.Login.route || currentRoute == Screen.Splash.route) {
+                    val dest = when(currentUser?.role) {
+                        UserRole.LECTURER -> Screen.LecturerDashboard.route
+                        UserRole.ASLAB -> Screen.AslabDashboard.route
+                        else -> Screen.StudentDashboard.route
+                    }
+                    navController.navigate(dest) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             }
         }
     }
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route
+        startDestination = Screen.Splash.route
     ) {
+        composable(Screen.Splash.route) {
+            SplashScreen(onSplashComplete = {
+                splashFinished = true
+            })
+        }
+
         composable(Screen.Login.route) {
             LoginScreen(
                 viewModel = authViewModel,
@@ -78,6 +100,11 @@ fun NavGraph(
                 initialTab = 0,
                 onRequestNew = {
                     navController.navigate(Screen.StudentRequest.route)
+                },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.StudentDashboard.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -93,6 +120,11 @@ fun NavGraph(
                 initialTab = tabArg,
                 onRequestNew = {
                     navController.navigate(Screen.StudentRequest.route)
+                },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.StudentDashboard.route) { inclusive = true }
+                    }
                 }
             )
         }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +41,14 @@ fun LecturerDashboard(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Lecturer Dashboard", fontWeight = FontWeight.Bold) })
+            TopAppBar(
+                title = { Text("Lecturer Dashboard", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = { authViewModel.logout() }) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout")
+                    }
+                }
+            )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(

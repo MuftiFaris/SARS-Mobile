@@ -72,7 +72,8 @@ fun StudentDashboard(
     chatViewModel: ChatViewModel,
     dashboardViewModel: com.informatika.sars.viewmodel.DashboardViewModel,
     initialTab: Int = 0,
-    onRequestNew: () -> Unit = {}
+    onRequestNew: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     val schedules by dashboardViewModel.schedules.collectAsState()
@@ -105,6 +106,14 @@ fun StudentDashboard(
         notificationEvent?.let { (title, message) ->
             val notificationService = NotificationService(context)
             notificationService.showNotification(title, message)
+        }
+    }
+    
+    // Navigate to login when user logs out
+    LaunchedEffect(currentUser) {
+        if (currentUser == null) {
+            android.util.Log.i("StudentDashboard", "✅ User logged out - navigating to login")
+            onLogout()
         }
     }
 
